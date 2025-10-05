@@ -17,11 +17,6 @@ const MONGO_URI = process.env.MONGO_URI_ATLAS;
 // ----------------------------------------------------
 
 // --- Middleware ---
-app.use(
-  cors({
-    origin: 'https://sistema-jur-5hdg.vercel.app/', // Permite apenas seu frontend Next.js
-  })
-);
 app.use(express.json()); // Permite que o Express leia corpos de requisição JSON
 
 // --- Conexão com o MongoDB ---
