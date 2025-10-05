@@ -4,7 +4,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 // --- NOVAS IMPORTAÇÕES PARA AUTENTICAÇÃO ---
-const authController = require('./src/Controllers/AuthController'); // Importa o controlador de autenticação
+const authController = require('./src/Controllers/authController'); // Importa o controlador de autenticação
 const protect = require('./src/Middleware/authMiddleware'); // Importa o middleware de proteção
 const Processo = require('./src/Models/Processo');
 // -------------------------------------------
