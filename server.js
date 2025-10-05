@@ -1,7 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-
 // Recomendado: Use a biblioteca dotenv para carregar variáveis de ambiente de um arquivo .env localmente
 require('dotenv').config();
 const Processo = require('./src/Models/Processo'); // Importa o modelo
@@ -10,14 +9,29 @@ const app = express();
 const PORT = 3001;
 
 // ----------------------------------------------------
-// MUDANÇA PRINCIPAL: Usar Variável de Ambiente
-// O código buscará a URL de conexão da variável MONGO_URI_ATLAS
-// Se ela não existir (o que acontece se você não configurou), ele usa a URL local como fallback.
-const MONGO_URI = process.env.MONGO_URI_ATLAS;
+// VARIÁVEIS DE AMBIENTE PARA PRODUÇÃO/DEV
+// ----------------------------------------------------
+// 1. URL de Conexão com o MongoDB Atlas (com fallback local)
+const MONGO_URI =
+  process.env.MONGO_URI_ATLAS || 'mongodb://localhost:27017/kanban_db';
+
+// 2. DOMÍNIO DO FRONTEND (Obrigatório para CORS)
+// DEFINIDO COMO '*' PARA DESABILITAR O CORS EM TESTES.
+const FRONTEND_URL = '*';
 // ----------------------------------------------------
 
 // --- Middleware ---
 app.use(express.json()); // Permite que o Express leia corpos de requisição JSON
+
+// --- CONFIGURAÇÃO DE CORS (DESABILITADA/ABERTA PARA TODOS) ---
+// ATENÇÃO: Origin: '*' permite que QUALQUER domínio acesse esta API.
+// Use APENAS para testes; restrinja com a URL do Vercel em produção.
+app.use(
+  cors({
+    origin: FRONTEND_URL, // Agora aceita '*' se a variável não estiver definida
+  })
+);
+// -----------------------------------------------------
 
 // --- Conexão com o MongoDB ---
 mongoose
