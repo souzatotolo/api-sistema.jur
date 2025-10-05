@@ -1,25 +1,28 @@
-// kanban-api/models/User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const userSchema = new mongoose.Schema({
+const UserSchema = new mongoose.Schema({
   username: {
     type: String,
-    required: [true, 'O nome de usuário é obrigatório.'],
-    unique: true, // Garante que cada usuário seja único
+    required: true,
+    unique: true, // Garante que o username seja único
     trim: true,
+    lowercase: true,
   },
   password: {
     type: String,
-    required: [true, 'A senha é obrigatória.'],
-    minlength: 6,
+    required: true,
   },
-  // Você pode adicionar outros campos, como 'isAdmin' ou 'nomeCompleto'
+  // Opcional: Adicionar um campo para rastrear a data de criação
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
-// MIDDLEWARE: Criptografar a senha antes de salvar
-userSchema.pre('save', async function (next) {
-  // Apenas roda se o campo de senha foi modificado (ou é novo)
+// Middleware Mongoose: Criptografa a senha antes de salvar
+UserSchema.pre('save', async function (next) {
+  // Apenas faz o hash se o campo 'password' foi modificado (ou é novo)
   if (!this.isModified('password')) {
     return next();
   }
@@ -30,10 +33,10 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
-// Método para comparar a senha fornecida com o hash no banco
-userSchema.methods.matchPassword = async function (enteredPassword) {
+// Método do Schema: Compara a senha fornecida com a senha em hash do banco de dados
+UserSchema.methods.matchPassword = async function (enteredPassword) {
+  // Retorna true se as senhas corresponderem
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-const User = mongoose.model('User', userSchema);
-module.exports = User;
+module.exports = mongoose.model('User', UserSchema);

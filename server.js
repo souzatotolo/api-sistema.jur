@@ -1,9 +1,13 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-// Recomendado: Use a biblioteca dotenv para carregar variáveis de ambiente de um arquivo .env localmente
 require('dotenv').config();
-const Processo = require('./src/Models/Processo'); // Importa o modelo
+
+// --- NOVAS IMPORTAÇÕES PARA AUTENTICAÇÃO ---
+const authController = require('./src/Controllers/AuthController'); // Importa o controlador de autenticação
+const protect = require('./src/Middleware/authMiddleware'); // Importa o middleware de proteção
+const Processo = require('./src/Models/Processo');
+// -------------------------------------------
 
 const app = express();
 const PORT = 3001;
@@ -11,24 +15,22 @@ const PORT = 3001;
 // ----------------------------------------------------
 // VARIÁVEIS DE AMBIENTE PARA PRODUÇÃO/DEV
 // ----------------------------------------------------
-// 1. URL de Conexão com o MongoDB Atlas (com fallback local)
+// 1. URL de Conexão com o MongoDB Atlas (usando process.env ou fallback local)
+// ATENÇÃO: Verifique se a sua variável de ambiente MONGO_URI_ATLAS está configurada
 const MONGO_URI =
   process.env.MONGO_URI_ATLAS || 'mongodb://localhost:27017/kanban_db';
 
-// 2. DOMÍNIO DO FRONTEND (Obrigatório para CORS)
-// DEFINIDO COMO '*' PARA DESABILITAR O CORS EM TESTES.
+// 2. DOMÍNIO DO FRONTEND (DEFINIDO COMO '*' PARA DESABILITAR O CORS EM TESTES.)
 const FRONTEND_URL = '*';
 // ----------------------------------------------------
 
 // --- Middleware ---
 app.use(express.json()); // Permite que o Express leia corpos de requisição JSON
 
-// --- CONFIGURAÇÃO DE CORS (DESABILITADA/ABERTA PARA TODOS) ---
-// ATENÇÃO: Origin: '*' permite que QUALQUER domínio acesse esta API.
-// Use APENAS para testes; restrinja com a URL do Vercel em produção.
+// --- CONFIGURAÇÃO DE CORS (ABERTA PARA TODOS) ---
 app.use(
   cors({
-    origin: FRONTEND_URL, // Agora aceita '*' se a variável não estiver definida
+    origin: FRONTEND_URL, // Aceita '*' ou a URL de produção
   })
 );
 // -----------------------------------------------------
@@ -52,15 +54,38 @@ const groupProcesses = (processos) => {
 };
 
 // ===================================
-//              ENDPOINTS
+//          ROTAS DE AUTENTICAÇÃO
 // ===================================
 
 /**
- * 1. GET: Retorna todos os processos agrupados por fase
- * Substitui a função loadProcessos do frontend
+ * Rota 1: Cadastro de usuário (Limitada a 2 usuários para inicialização)
  */
-app.get('/api/processos', async (req, res) => {
+app.post('/api/auth/register', authController.register);
+
+/**
+ * Rota 2: Login e Geração de Token JWT
+ */
+app.post('/api/auth/login', authController.login);
+
+/**
+ * Rota 3: Alteração de Senha (PROTEGIDA)
+ * Requer um token JWT válido no cabeçalho
+ */
+app.put('/api/auth/change-password', protect, authController.changePassword);
+
+// ===================================
+//     ENDPOINTS DE PROCESSO (PROTEGIDOS)
+// ===================================
+
+// Aplica o middleware 'protect' a todas as rotas de processo abaixo
+
+/**
+ * 1. GET: Retorna todos os processos agrupados por fase
+ * AGORA PROTEGIDA: Requer token JWT
+ */
+app.get('/api/processos', protect, async (req, res) => {
   try {
+    // req.user contém o usuário logado se o token for válido
     const processos = await Processo.find({}).sort({ nomeCliente: 1 });
     const grouped = groupProcesses(processos);
     res.json(grouped);
@@ -72,9 +97,9 @@ app.get('/api/processos', async (req, res) => {
 
 /**
  * 2. POST: Cria um novo processo
- * Substitui a função handleSaveNew do frontend
+ * AGORA PROTEGIDA: Requer token JWT
  */
-app.post('/api/processos', async (req, res) => {
+app.post('/api/processos', protect, async (req, res) => {
   try {
     const novoProcesso = new Processo(req.body);
     // Garante que o histórico inicial seja salvo
@@ -93,9 +118,9 @@ app.post('/api/processos', async (req, res) => {
 
 /**
  * 3. PUT: Atualiza um processo existente (edição completa ou DND)
- * Substitui a função handleSaveEdit e parte do onDragEnd
+ * AGORA PROTEGIDA: Requer token JWT
  */
-app.put('/api/processos/:id', async (req, res) => {
+app.put('/api/processos/:id', protect, async (req, res) => {
   const { id } = req.params;
   try {
     const updatedProcesso = await Processo.findByIdAndUpdate(
@@ -117,9 +142,9 @@ app.put('/api/processos/:id', async (req, res) => {
 
 /**
  * 4. POST: Adiciona uma atualização ao histórico
- * Substitui a função handleAddUpdate
+ * AGORA PROTEGIDA: Requer token JWT
  */
-app.post('/api/processos/:id/historico', async (req, res) => {
+app.post('/api/processos/:id/historico', protect, async (req, res) => {
   const { id } = req.params;
   const { descricao } = req.body;
   const newUpdate = { descricao: descricao, data: new Date() };
@@ -145,7 +170,11 @@ app.post('/api/processos/:id/historico', async (req, res) => {
   }
 });
 
-app.delete('/api/processos/:id', async (req, res) => {
+/**
+ * 5. DELETE: Exclui um processo
+ * AGORA PROTEGIDA: Requer token JWT
+ */
+app.delete('/api/processos/:id', protect, async (req, res) => {
   const { id } = req.params;
   try {
     const deletedProcesso = await Processo.findByIdAndDelete(id);
@@ -156,7 +185,6 @@ app.delete('/api/processos/:id', async (req, res) => {
         .json({ message: 'Processo não encontrado para exclusão' });
     }
 
-    // Retorna uma resposta de sucesso (Status 200 OK ou 204 No Content)
     res.status(200).json({ message: 'Processo excluído com sucesso', id: id });
   } catch (err) {
     console.error('Erro ao excluir processo:', err);
@@ -168,5 +196,5 @@ app.delete('/api/processos/:id', async (req, res) => {
 
 // --- Início do Servidor ---
 app.listen(PORT, () => {
-  console.log(`Servidor da API rodando em http://localhost:${PORT}`);
+  console.log(`Servidor da API rodando...`);
 });

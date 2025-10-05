@@ -1,12 +1,11 @@
-// kanban-api/controllers/authController.js
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs'); // Ainda é necessário para rotas específicas
-const User = require('../Models/User'); // NOVO: Importa o modelo User
+const bcrypt = require('bcryptjs');
+const User = require('../Models/User'); // Importa o modelo User
 
-// O SEGREDO DO JWT - Mantenha este valor seguro e o mesmo no middleware!
+// O SEGREDO DO JWT - Mantenha este valor seguro e o mesmo no middleware/protect.js!
 const JWT_SECRET = '222';
 
-// --- FUNÇÃO 1: LOGIN (Atualizada) ---
+// --- FUNÇÃO 1: LOGIN ---
 exports.login = async (req, res) => {
   const { username, password } = req.body;
 
@@ -18,7 +17,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Credenciais inválidas.' });
     }
 
-    // 2. Comparar senha usando o método do Schema
+    // 2. Comparar senha usando o método do Schema (implementado no User.js)
     const isMatch = await user.matchPassword(password);
 
     if (!isMatch) {
@@ -40,12 +39,11 @@ exports.login = async (req, res) => {
 };
 
 // --- FUNÇÃO 2: CADASTRO DE USUÁRIO (NOVA) ---
-// Normalmente, esta rota seria protegida para que apenas administradores pudessem criar novos usuários.
-// Por simplicidade, deixaremos ela aberta temporariamente para criar os 2 usuários iniciais.
+// Rota aberta APENAS para criar os 2 usuários iniciais ("martancouto", "richardtotolo").
 exports.register = async (req, res) => {
   const { username, password } = req.body;
 
-  // Garantir que apenas os dois usuários sejam cadastrados inicialmente
+  // Lógica de limitação para dois usuários iniciais
   if (
     !['martancouto', 'richardtotolo'].includes(username) ||
     (await User.countDocuments()) >= 2
@@ -57,7 +55,7 @@ exports.register = async (req, res) => {
   }
 
   try {
-    // 1. Criar novo usuário (o Mongoose fará o hash automático!)
+    // 1. Criar novo usuário (o Mongoose fará o hash automático no User.js!)
     const user = await User.create({ username, password });
 
     // 2. Gerar e enviar token (faz login automático após o cadastro)
@@ -81,8 +79,8 @@ exports.register = async (req, res) => {
   }
 };
 
-// --- FUNÇÃO 3: ALTERAR SENHA (NOVA) ---
-// Esta rota precisa ser PROTEGIDA, pois o usuário deve estar logado para alterar a própria senha.
+// --- FUNÇÃO 3: ALTERAR SENHA (PROTEGIDA) ---
+// Esta rota é chamada APENAS se o middleware 'protect' permitir.
 exports.changePassword = async (req, res) => {
   // O middleware `protect` anexa o objeto `user` (decodificado do JWT) à requisição
   const userId = req.user.id;
@@ -98,6 +96,7 @@ exports.changePassword = async (req, res) => {
     const user = await User.findById(userId);
 
     if (!user) {
+      // Isso é um fallback, pois o middleware protect já garante que o usuário existe
       return res.status(404).json({ message: 'Usuário não encontrado.' });
     }
 
@@ -106,7 +105,7 @@ exports.changePassword = async (req, res) => {
       return res.status(401).json({ message: 'Senha antiga incorreta.' });
     }
 
-    // 2. Atualizar a senha (o middleware 'pre save' fará o hash automaticamente)
+    // 2. Atualizar a senha (o middleware 'pre save' do Mongoose fará o hash automaticamente)
     user.password = newPassword;
     await user.save();
 

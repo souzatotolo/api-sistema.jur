@@ -1,36 +1,49 @@
-// kanban-api/middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
+const User = require('../Models/User');
 
-// Deve ser O MESMO segredo usado no authController.js
+// O SEGREDO DO JWT - DEVE SER O MESMO EM authController.js!
+// Em um ambiente de produção real, use process.env.JWT_SECRET aqui.
 const JWT_SECRET = '222';
 
-exports.protect = (req, res, next) => {
+const protect = async (req, res, next) => {
   let token;
 
-  // 1. Obter o token do cabeçalho de Autorização (formato: Bearer <token>)
+  // 1. Verifica se o token está no cabeçalho (Bearer Token)
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
   ) {
-    token = req.headers.authorization.split(' ')[1];
+    try {
+      // Formato: "Bearer TOKEN" -> extrai apenas o TOKEN
+      token = req.headers.authorization.split(' ')[1];
+
+      // 2. Verifica e decodifica o token
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      // 3. Anexa o usuário à requisição (excluindo a senha)
+      // Isso permite que você acesse req.user._id em suas rotas
+      req.user = await User.findById(decoded.id).select('-password');
+
+      if (!req.user) {
+        return res
+          .status(401)
+          .json({ message: 'Não autorizado, usuário não encontrado.' });
+      }
+
+      next(); // Continua para a próxima função da rota
+    } catch (error) {
+      console.error(error);
+      // Erros comuns: token expirado, inválido
+      return res
+        .status(401)
+        .json({ message: 'Não autorizado, token falhou ou é inválido.' });
+    }
   }
 
+  // Se o token não foi encontrado
   if (!token) {
-    return res
-      .status(401)
-      .json({ message: 'Acesso negado. Token não fornecido.' });
-  }
-
-  try {
-    // 2. Verificar e decodificar o token
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    // 3. Anexar o usuário à requisição (opcional)
-    req.user = decoded;
-
-    next();
-  } catch (error) {
-    // Token inválido ou expirado
-    return res.status(401).json({ message: 'Token inválido ou expirado.' });
+    res.status(401).json({ message: 'Não autorizado, token não encontrado.' });
   }
 };
+
+module.exports = protect;
