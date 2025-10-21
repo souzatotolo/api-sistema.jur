@@ -25,6 +25,7 @@ const processoSchema = new mongoose.Schema({
   tipo: String, // Tipo: Cível, Trabalhista, etc.
   prazo: Date,
   audiencia: Date,
+  ultimoContato: Date,
   statusPrioridade: String, // Fazer com prioridade, Aguardando (Cliente), etc.
   proximoPasso: String,
   observacao: String,
