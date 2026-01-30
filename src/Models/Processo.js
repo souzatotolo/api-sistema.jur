@@ -10,6 +10,28 @@ const historicoSchema = new mongoose.Schema(
   { _id: false }
 ); // Não gera _id para subdocumentos simples
 
+// Define a estrutura de parcela
+const parcelaSchema = new mongoose.Schema(
+  {
+    numero: { type: Number, required: true },
+    valor: { type: Number, required: true },
+    data: Date,
+    pago: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+// Define a estrutura de pagamento
+const pagamentoSchema = new mongoose.Schema(
+  {
+    status: { type: String, enum: ['Pago', 'Parcial', 'Não Pago'], default: 'Não Pago' },
+    totalPago: { type: Number, default: 0 },
+    dataPagamento: Date,
+    parcelas: [parcelaSchema],
+  },
+  { _id: false }
+);
+
 // Define a estrutura principal do Processo
 const processoSchema = new mongoose.Schema({
   nomeCliente: { type: String, required: true },
@@ -29,6 +51,9 @@ const processoSchema = new mongoose.Schema({
   statusPrioridade: String, // Fazer com prioridade, Aguardando (Cliente), etc.
   proximoPasso: String,
   observacao: String,
+
+  // Novo: Dados de pagamento
+  pagamento: pagamentoSchema,
 
   // O array de histórico armazena todas as atualizações
   historico: [historicoSchema],

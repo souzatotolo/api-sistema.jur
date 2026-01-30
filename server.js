@@ -31,7 +31,7 @@ app.use(express.json()); // Permite que o Express leia corpos de requisição JS
 app.use(
   cors({
     origin: FRONTEND_URL, // Aceita '*' ou a URL de produção
-  })
+  }),
 );
 // -----------------------------------------------------
 
@@ -122,18 +122,20 @@ app.post('/api/processos', protect, async (req, res) => {
  */
 app.put('/api/processos/:id', protect, async (req, res) => {
   const { id } = req.params;
+  console.log('PUT /api/processos/:id', id, req.body);
   try {
     const updatedProcesso = await Processo.findByIdAndUpdate(
       id,
       req.body,
-      { new: true, runValidators: true } // new: retorna o documento atualizado
+      { new: true }, // new: retorna o documento atualizado
     );
     if (!updatedProcesso) {
       return res.status(404).json({ message: 'Processo não encontrado' });
     }
+    console.log('Updated processo:', updatedProcesso.pagamento);
     res.json(updatedProcesso.toJSON());
   } catch (err) {
-    console.error(err);
+    console.error('Error updating processo:', err);
     res
       .status(400)
       .json({ message: 'Erro ao atualizar processo', error: err.message });
@@ -156,7 +158,7 @@ app.post('/api/processos/:id/historico', protect, async (req, res) => {
         $push: { historico: { $each: [newUpdate], $position: 0 } }, // Adiciona no início do array
         observacao: descricao, // Atualiza a observação principal
       },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedProcesso) {
