@@ -7,7 +7,7 @@ const historicoSchema = new mongoose.Schema(
     data: { type: Date, default: Date.now },
     descricao: { type: String, required: true },
   },
-  { _id: false }
+  { _id: false },
 ); // Não gera _id para subdocumentos simples
 
 // Define a estrutura de parcela
@@ -18,18 +18,22 @@ const parcelaSchema = new mongoose.Schema(
     data: Date,
     pago: { type: Boolean, default: false },
   },
-  { _id: false }
+  { _id: false },
 );
 
 // Define a estrutura de pagamento
 const pagamentoSchema = new mongoose.Schema(
   {
-    status: { type: String, enum: ['Pago', 'Parcial', 'Não Pago'], default: 'Não Pago' },
+    status: {
+      type: String,
+      enum: ['Pago', 'Parcial', 'Não Pago'],
+      default: 'Não Pago',
+    },
     totalPago: { type: Number, default: 0 },
     dataPagamento: Date,
     parcelas: [parcelaSchema],
   },
-  { _id: false }
+  { _id: false },
 );
 
 // Define a estrutura principal do Processo
