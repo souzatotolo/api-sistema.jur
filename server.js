@@ -215,7 +215,11 @@ app.get('/api/eventos/:id', protect, eventoController.getEventoById);
 /**
  * GET: Retorna eventos de um processo específico
  */
-app.get('/api/processos/:processoId/eventos', protect, eventoController.getEventosByProcesso);
+app.get(
+  '/api/processos/:processoId/eventos',
+  protect,
+  eventoController.getEventosByProcesso,
+);
 
 /**
  * GET: Retorna eventos em um período (query: dataInicio, dataFim)
@@ -241,4 +245,3 @@ app.delete('/api/eventos/:id', protect, eventoController.deleteEvento);
 app.listen(PORT, () => {
   console.log(`Servidor da API rodando...`);
 });
-

@@ -50,11 +50,10 @@ exports.createEvento = async (req, res) => {
 // PUT atualizar evento
 exports.updateEvento = async (req, res) => {
   try {
-    const evento = await Evento.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    ).populate('processoId');
+    const evento = await Evento.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    }).populate('processoId');
 
     if (!evento) {
       return res.status(404).json({ message: 'Evento não encontrado' });
