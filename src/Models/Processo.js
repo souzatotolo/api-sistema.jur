@@ -55,6 +55,7 @@ const processoSchema = new mongoose.Schema({
   statusPrioridade: String, // Fazer com prioridade, Aguardando (Cliente), etc.
   proximoPasso: String,
   observacao: String,
+  meus: { type: Boolean, default: false }, // Campo para marcar processos pessoais
 
   // Novo: Dados de pagamento
   pagamento: pagamentoSchema,

@@ -7,6 +7,8 @@ require('dotenv').config();
 const authController = require('./src/Controllers/authController'); // Importa o controlador de autenticação
 const protect = require('./src/Middleware/authMiddleware'); // Importa o middleware de proteção
 const Processo = require('./src/Models/Processo');
+const Evento = require('./src/Models/Evento'); // Importa modelo de Evento
+const eventoController = require('./src/Controllers/eventoController'); // Importa controller de Evento
 // -------------------------------------------
 
 const app = express();
@@ -196,7 +198,47 @@ app.delete('/api/processos/:id', protect, async (req, res) => {
   }
 });
 
+// ===================================
+//     ENDPOINTS DE EVENTO (PROTEGIDOS)
+// ===================================
+
+/**
+ * GET: Retorna todos os eventos
+ */
+app.get('/api/eventos', protect, eventoController.getAllEventos);
+
+/**
+ * GET: Retorna evento por ID
+ */
+app.get('/api/eventos/:id', protect, eventoController.getEventoById);
+
+/**
+ * GET: Retorna eventos de um processo específico
+ */
+app.get('/api/processos/:processoId/eventos', protect, eventoController.getEventosByProcesso);
+
+/**
+ * GET: Retorna eventos em um período (query: dataInicio, dataFim)
+ */
+app.get('/api/eventos/periodo', protect, eventoController.getEventosPorPeriodo);
+
+/**
+ * POST: Cria novo evento
+ */
+app.post('/api/eventos', protect, eventoController.createEvento);
+
+/**
+ * PUT: Atualiza evento
+ */
+app.put('/api/eventos/:id', protect, eventoController.updateEvento);
+
+/**
+ * DELETE: Deleta evento
+ */
+app.delete('/api/eventos/:id', protect, eventoController.deleteEvento);
+
 // --- Início do Servidor ---
 app.listen(PORT, () => {
   console.log(`Servidor da API rodando...`);
 });
+
