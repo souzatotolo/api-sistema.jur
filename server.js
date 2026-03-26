@@ -9,6 +9,7 @@ const protect = require('./src/Middleware/authMiddleware'); // Importa o middlew
 const Processo = require('./src/Models/Processo');
 const Evento = require('./src/Models/Evento'); // Importa modelo de Evento
 const eventoController = require('./src/Controllers/eventoController'); // Importa controller de Evento
+const Publicacao = require('./src/Models/Publicacao');
 // -------------------------------------------
 
 const app = express();
@@ -240,6 +241,143 @@ app.put('/api/eventos/:id', protect, eventoController.updateEvento);
  * DELETE: Deleta evento
  */
 app.delete('/api/eventos/:id', protect, eventoController.deleteEvento);
+
+// ===================================
+//     ENDPOINT DATAJUD (PROXY CNJ)
+// ===================================
+
+/**
+ * GET /api/datajud/:numProcesso
+ * Consulta o andamento processual no DataJud (CNJ)
+ * O número do processo deve estar no formato CNJ: NNNNNNN-DD.AAAA.J.TT.OOOO
+ */
+app.get('/api/datajud/:numProcesso', protect, async (req, res) => {
+  const { numProcesso } = req.params;
+
+  // Detecta o índice do tribunal a partir do número CNJ
+  const getTribunalIndex = (num) => {
+    const clean = num.replace(/[^0-9]/g, '');
+    if (clean.length !== 20) return null;
+    const J = clean[13];
+    const TT = clean.substring(14, 16);
+    const tjMap = {
+      '01': 'tjac', '02': 'tjal', '03': 'tjap', '04': 'tjam',
+      '05': 'tjba', '06': 'tjce', '07': 'tjdft', '08': 'tjes',
+      '09': 'tjgo', '10': 'tjma', '11': 'tjmt', '12': 'tjms',
+      '13': 'tjmg', '14': 'tjpa', '15': 'tjpb', '16': 'tjpr',
+      '17': 'tjpe', '18': 'tjpi', '19': 'tjrj', '20': 'tjrn',
+      '21': 'tjrs', '22': 'tjro', '23': 'tjrr', '24': 'tjsc',
+      '25': 'tjse', '26': 'tjsp', '27': 'tjto',
+    };
+    if (J === '1') return 'stf';
+    if (J === '2') return 'cnj';
+    if (J === '3') return 'stj';
+    if (J === '4') return 'tst';
+    if (J === '5') return 'mpt';
+    if (J === '6') return `trf${parseInt(TT)}`;
+    if (J === '7') return `trt${parseInt(TT)}`;
+    if (J === '8') return tjMap[TT] || null;
+    return null;
+  };
+
+  const tribunal = getTribunalIndex(numProcesso);
+  if (!tribunal) {
+    return res.status(400).json({ message: 'Número de processo inválido ou tribunal não identificado. Use o formato CNJ: NNNNNNN-DD.AAAA.J.TT.OOOO' });
+  }
+
+  const apiKey = process.env.DATAJUD_API_KEY || 'cDZHYzlZa0JadVREZDJCendN';
+  const url = `https://api-publica.datajud.cnj.jus.br/api_publica_${tribunal}/_search`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `APIKey ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: { match: { numeroProcesso: numProcesso } },
+        sort: [{ 'dataAjuizamento': { order: 'desc' } }],
+        size: 1,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(response.status).json({ message: 'Erro ao consultar DataJud', detalhe: errText });
+    }
+
+    const data = await response.json();
+    const hits = data?.hits?.hits || [];
+
+    if (hits.length === 0) {
+      return res.status(404).json({ message: 'Processo não encontrado no DataJud para o tribunal detectado.', tribunal });
+    }
+
+    const processo = hits[0]._source;
+    return res.json({
+      tribunal,
+      numeroProcesso: processo.numeroProcesso,
+      classe: processo.classe?.nome || '',
+      assuntos: (processo.assuntos || []).map((a) => a.nome),
+      dataAjuizamento: processo.dataAjuizamento,
+      orgaoJulgador: processo.orgaoJulgador?.nome || '',
+      movimentos: (processo.movimentos || [])
+        .sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora))
+        .slice(0, 20)
+        .map((m) => ({
+          data: m.dataHora,
+          descricao: m.nome || m.complementosTabelados?.map((c) => c.descricao).join(', ') || '',
+        })),
+    });
+  } catch (err) {
+    console.error('Erro ao consultar DataJud:', err);
+    res.status(500).json({ message: 'Erro interno ao consultar DataJud', error: err.message });
+  }
+});
+
+// ===================================
+//     ENDPOINTS DE PUBLICAÇÕES (PROTEGIDOS)
+// ===================================
+
+app.get('/api/publicacoes', protect, async (req, res) => {
+  try {
+    const publicacoes = await Publicacao.find({}).sort({ dataPublicacao: -1 });
+    res.json(publicacoes);
+  } catch (err) {
+    res.status(500).json({ message: 'Erro ao buscar publicações' });
+  }
+});
+
+app.post('/api/publicacoes', protect, async (req, res) => {
+  try {
+    const nova = new Publicacao(req.body);
+    await nova.save();
+    res.status(201).json(nova.toJSON());
+  } catch (err) {
+    res.status(400).json({ message: 'Erro ao criar publicação', error: err.message });
+  }
+});
+
+app.put('/api/publicacoes/:id', protect, async (req, res) => {
+  try {
+    const updated = await Publicacao.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ message: 'Publicação não encontrada' });
+    res.json(updated.toJSON());
+  } catch (err) {
+    res.status(400).json({ message: 'Erro ao atualizar publicação', error: err.message });
+  }
+});
+
+app.delete('/api/publicacoes/:id', protect, async (req, res) => {
+  try {
+    const deleted = await Publicacao.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: 'Publicação não encontrada' });
+    res.json({ message: 'Publicação excluída', id: req.params.id });
+  } catch (err) {
+    res.status(500).json({ message: 'Erro ao excluir publicação' });
+  }
+});
 
 // --- Início do Servidor ---
 app.listen(PORT, () => {
